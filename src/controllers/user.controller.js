@@ -2,14 +2,16 @@ import {asyncHandler} from '../utils/asyncHandler.js';
 import {User} from '../models/user.model.js'
 
 const registerUser = asyncHandler(async(req, res) => {
-    const {fullName, email, password} = req.body;
+    const { fullName, email, password, username } = req.body;
     console.log("Request Body:", req.body);
     console.log("Uploaded Files:", req.files);
+    console.log(req.body);   // To check form data
+console.log(req.files);   // To check uploaded files
 
     // validate required fields
-    const requiredFields = {fullName, email, password};
-    for(const [key, value] of Object.entries(requiredFields)){
-        if(!value || value.trim() === ""){
+    const requiredFields = { fullName, email, password, username }; // include username here
+    for (const [key, value] of Object.entries(requiredFields)) {
+        if (!value || value.trim() === "") {
             throw new Error(`${key} is required`, 400);
         }
     }
@@ -29,16 +31,18 @@ const registerUser = asyncHandler(async(req, res) => {
         throw new Error("Email or username already exists", 409);
     }
     // validate file uploads
-    const avatarLocalPath = req.file?.avatar?.[0]?.path.replace("\\", "/");
-    const coverImageLocalPath = req.file?.coverImage?.[0]?.path.replace("\\", "/");
-
-    if(!avatarLocalPath){
-        console.error("Avatar upload is missing : ", req.file?.avatar);
+    const avatarLocalPath = req.files?.avatar?.[0]?.path.replace("\\", "/");
+    const coverImageLocalPath = req.files?.coverImage?.[0]?.path.replace("\\", "/");
+    
+    if (!avatarLocalPath) {
+        console.error("Avatar upload is missing : ", req.files?.avatar);
         throw new ApiError("Please upload a valid avatar image", 400);
     }
-    if(req.file?.coverImage && !coverImageLocalPath){
-        console.error("Cover image upload is missing : ", req.file?.coverImage);
+    
+    if (req.files?.coverImage && !coverImageLocalPath) {
+        console.error("Cover image upload is missing : ", req.files?.coverImage);
     }
+    
     
     // upload images to Cloudinary
     let avatar, coverImage;
