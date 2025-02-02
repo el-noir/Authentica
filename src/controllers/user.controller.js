@@ -1,12 +1,13 @@
 import {asyncHandler} from '../utils/asyncHandler.js';
 import {User} from '../models/user.model.js'
+import {ApiError} from '../utils/ApiError.js';
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
 const registerUser = asyncHandler(async(req, res) => {
     const { fullName, email, password, username } = req.body;
     console.log("Request Body:", req.body);
     console.log("Uploaded Files:", req.files);
-    console.log(req.body);   // To check form data
-console.log(req.files);   // To check uploaded files
 
     // validate required fields
     const requiredFields = { fullName, email, password, username }; // include username here
@@ -18,7 +19,7 @@ console.log(req.files);   // To check uploaded files
     //validate email format 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if(!emailRegex.test(email)){
-        throw new Error("Invalid email format", 400);
+        throw new ApiError("Invalid email format", 400);
     }
     //   // Validate username length
     if (username.length < 3) {
@@ -28,12 +29,14 @@ console.log(req.files);   // To check uploaded files
     //check if user already exists 
     const existedUser = await User.findOne({ $or: [{username}, {email}]})
     if(existedUser) {
-        throw new Error("Email or username already exists", 409);
+        throw new ApiError("Email or username already exists", 409);
     }
     // validate file uploads
     const avatarLocalPath = req.files?.avatar?.[0]?.path.replace("\\", "/");
     const coverImageLocalPath = req.files?.coverImage?.[0]?.path.replace("\\", "/");
-    
+    console.log('Avatar file path: ', avatarLocalPath);
+console.log('Cover Image file path: ', coverImageLocalPath);
+
     if (!avatarLocalPath) {
         console.error("Avatar upload is missing : ", req.files?.avatar);
         throw new ApiError("Please upload a valid avatar image", 400);
