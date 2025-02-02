@@ -3,6 +3,23 @@ import {User} from '../models/user.model.js'
 import {ApiError} from '../utils/ApiError.js';
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { access } from 'fs';
+
+const generateAccessAndRefreshToken = async(userId) => {
+    try{
+        const user = await User.findById(userId)
+        const refreshToken = user.generateRefreshToken()
+        const accessToken = user.generateAccessToken()
+        
+        user.refreshToken = refreshToken
+        await user.save({validateBeforeSave: false})
+       return {accessToken, refreshToken}
+
+    } catch (error){
+        console.error("Error generating access and refresh tokens:", error.message);
+        throw new ApiError("Error generating access and refresh tokens", 500);
+    }
+}
 
 const registerUser = asyncHandler(async(req, res) => {
     const { fullName, email, password, username } = req.body;
@@ -45,7 +62,6 @@ console.log('Cover Image file path: ', coverImageLocalPath);
     if (req.files?.coverImage && !coverImageLocalPath) {
         console.error("Cover image upload is missing : ", req.files?.coverImage);
     }
-    
     
     // upload images to Cloudinary
     let avatar, coverImage;
@@ -92,4 +108,57 @@ console.log('Cover Image file path: ', coverImageLocalPath);
   }
 });
 
-export {registerUser}
+const loginUser = asyncHandler(async(req, res) => {
+    // req bod -> data
+    // username or email 
+    // find the user
+    // password check
+    // access and refresh token
+    // send cookie 
+    
+    const {email, username, password} = req.body
+
+    if((!username || !email)){
+      throw new ApiError("Please provide username or email", 400)
+    }
+    
+    const user = await User.findOne({ $or: [{username}, {email}]})
+
+    if(!user){
+      throw new ApiError("User not found", 401)
+    }
+    
+    const isPasswordValid=  await user.isPasswordCorrect(password)
+    
+    if(!isPasswordValid){
+     throw new ApiError("Password is not correct", 401)
+    }
+    
+    // generate access and refresh token
+    const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id)
+    
+    // send access and refresh token as cookie
+    const loggedInUser = await await User.findById(user._id).
+    select("-password -refreshToken")
+
+    const options = {
+      httpOnly: true,
+      secure: true
+    }
+    return res
+   .status(200)
+   .cookie("accessToken", accessToken, options)
+   .cookie("refreshToken", refreshToken, options)
+   .json(
+     new ApiResponse(
+       200,
+       {
+         user: loggedInUser, accessToken,
+         refreshToken
+       },
+       "User logged in successfully"
+     )
+   )
+})
+
+export {registerUser, loginUser}
